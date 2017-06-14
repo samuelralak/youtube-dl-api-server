@@ -4,7 +4,7 @@ import traceback
 import sys
 
 from flask import Flask, Blueprint, current_app, jsonify, request, redirect, abort
-import youtube_dl
+import youtube_dl, urlparse, os
 from youtube_dl.version import __version__ as youtube_dl_version
 
 from .version import __version__
@@ -139,12 +139,30 @@ def get_result():
             extra_params[k] = convertf(v)
     return get_videos(url, extra_params)
 
+def get_url_ext(url):
+    path = urlparse.urlparse(url).path
+    ext = os.path.splitext(path)[1]
+
+    return ext
+
+def filter_formats(result):
+    formats = result['formats']
+    formats = list(filter(lambda obj: obj['ext'] == 'mp4', formats))
+
+    if result['extractor'] == 'vimeo':
+        formats = list(filter(lambda obj: 'fragments' not in obj, formats))
+        formats = list(filter(lambda obj: get_url_ext(obj['url']) == '.mp4', formats))
+
+    result['formats'] = formats
+    return result
+
 
 @route_api('info')
 @set_access_control
 def info():
     url = request.args['url']
     result = get_result()
+    result = filter_formats(result)
     key = 'info'
     if query_bool(request.args.get('flatten'), 'flatten', False):
         result = flatten_result(result)
@@ -180,6 +198,13 @@ def version():
         'youtube-dl-api-server': __version__,
     }
     return jsonify(result)
+
+@route_api('test')
+@set_access_control
+def test_stuff():
+    result = get_videos(request.args['url'], {})
+    return jsonify(flatten_result(result))
+
 
 app = Flask(__name__)
 app.register_blueprint(api)
