@@ -4,14 +4,14 @@ import traceback
 import sys
 
 from flask import Flask, Blueprint, current_app, jsonify, request, redirect, abort
-import youtube_dl, urlparse, urllib, os
+import youtube_dl, urlparse, urllib, os, tempfile, shutil
 
 from youtube_dl.version import __version__ as youtube_dl_version
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
+from contextlib import contextmanager
 
 from .version import __version__
-
 
 if not hasattr(sys.stderr, 'isatty'):
     # In GAE it's not defined and we must monkeypatch
@@ -22,6 +22,16 @@ class SimpleYDL(youtube_dl.YoutubeDL):
     def __init__(self, *args, **kargs):
         super(SimpleYDL, self).__init__(*args, **kargs)
         self.add_default_info_extractors()
+
+@contextmanager
+def make_temp_directory():
+    tempfile.tempdir = '/tmp'
+    temp_dir = tempfile.mkdtemp()
+
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 def get_videos(url, extra_params):
@@ -189,9 +199,10 @@ def trim():
     url = request.query_string.split('url=', 1)[1]
     clip = (VideoFileClip(url).subclip((0,00.00),(0,16.00)))
 
-    clip.write_videofile("use_your_head.mp4")
-    clip.resize(0.3).write_gif("use_your_head.gif")
-    
+    with make_temp_directory() as temp_dir:
+        clip.write_videofile("%s/use_your_head.mp4" % temp_dir, audio=False)
+        clip.resize(0.3).write_gif("%s/use_your_head.gif" % temp_dir)
+
     return jsonify({})
 
 @route_api('play')
