@@ -4,12 +4,13 @@ import traceback
 import sys
 
 from flask import Flask, Blueprint, current_app, jsonify, request, redirect, abort
-import youtube_dl, urlparse, urllib, os, tempfile, shutil
+import youtube_dl, urlparse, urllib, os, tempfile, shutil, boto3, time
 
 from youtube_dl.version import __version__ as youtube_dl_version
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
 from contextlib import contextmanager
+from boto3.s3.transfer import S3Transfer
 
 from .version import __version__
 
@@ -65,6 +66,11 @@ def flatten_result(result):
 
 
 api = Blueprint('api', __name__)
+client = boto3.client('s3',
+    'us-east-1',
+    aws_access_key_id='AKIAIOKFVXDG2HH2DQTQ',
+    aws_secret_access_key='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'
+)
 
 
 def route_api(subpath, *args, **kargs):
@@ -200,8 +206,21 @@ def trim():
     clip = (VideoFileClip(url).subclip((0,00.00),(0,16.00)))
 
     with make_temp_directory() as temp_dir:
-        clip.write_videofile("%s/use_your_head.mp4" % temp_dir, audio=False)
-        clip.resize(0.3).write_gif("%s/use_your_head.gif" % temp_dir)
+        files = ["%s/use_your_head.mp4" % temp_dir, "%s/use_your_head.gif" % temp_dir]
+        prefix = "%r_output" % int(time.time())
+        dir_code = temp_dir.split('/')[2]
+        transfer = S3Transfer(client)
+
+        clip.write_videofile(files[0], audio=False)
+        clip.resize(0.3).write_gif(files[1])
+
+        for file in files:
+            arr = file.split('.')
+            ext = arr[len(arr) - 1]
+
+            transfer.upload_file(
+                file, 'gifly.org', dir_code + '/' + prefix + '.' + ext
+            )
 
     return jsonify({})
 
