@@ -1,3 +1,6 @@
+import imageio
+imageio.plugins.ffmpeg.download()
+
 import functools
 import logging
 import traceback
