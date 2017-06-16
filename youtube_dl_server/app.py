@@ -4,8 +4,11 @@ import traceback
 import sys
 
 from flask import Flask, Blueprint, current_app, jsonify, request, redirect, abort
-import youtube_dl, urlparse, os
+import youtube_dl, urlparse, urllib, os
+
 from youtube_dl.version import __version__ as youtube_dl_version
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
+from moviepy.editor import *
 
 from .version import __version__
 
@@ -173,6 +176,23 @@ def info():
     }
     return jsonify(result)
 
+@route_api('trim')
+@set_access_control
+def trim():
+    """ Python/werkzerg encodes routing reading %2F as '/'
+        we honestly do not want this behavior as it
+        breaks vimeo video files url.
+
+        well, we could obviously custom converters to
+        override this behavior but that would be overkill
+    """
+    url = request.query_string.split('url=', 1)[1]
+    clip = (VideoFileClip(url).subclip((0,00.00),(0,16.00)))
+
+    clip.write_videofile("use_your_head.mp4")
+    clip.resize(0.3).write_gif("use_your_head.gif")
+    
+    return jsonify({})
 
 @route_api('play')
 def play():
