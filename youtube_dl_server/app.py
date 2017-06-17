@@ -1,10 +1,11 @@
-import imageio
-imageio.plugins.ffmpeg.download()
-
+# import imageio
+# imageio.plugins.ffmpeg.download()
+#
 import functools
 import logging
 import traceback
 import sys
+import ffmpeg
 
 from flask import Flask, Blueprint, current_app, jsonify, request, redirect, abort
 import youtube_dl, urlparse, urllib, os, tempfile, shutil, boto3, time
@@ -45,6 +46,8 @@ def get_videos(url, extra_params):
     ydl_params = {
         'format': 'best',
         'cachedir': False,
+        'ignoreerrors': True,
+        'geo_bypass': True,
         'logger': current_app.logger.getChild('youtube-dl'),
     }
     ydl_params.update(extra_params)
@@ -206,7 +209,7 @@ def trim():
         override this behavior but that would be overkill
     """
     url = request.query_string.split('url=', 1)[1]
-    clip = (VideoFileClip(url).subclip((0,00.00),(0,16.00)))
+    # clip = (VideoFileClip(url).subclip((0,00.00),(0,16.00)))
 
     with make_temp_directory() as temp_dir:
         files = ["%s/use_your_head.mp4" % temp_dir, "%s/use_your_head.gif" % temp_dir]
@@ -214,16 +217,22 @@ def trim():
         dir_code = temp_dir.split('/')[2]
         transfer = S3Transfer(client)
 
-        clip.write_videofile(files[0], audio=False)
-        clip.resize(0.3).write_gif(files[1])
+        (ffmpeg
+            .input(url)
+            .trim(start=1, end=10)
+            .output('out.mp4')
+            .run()
+        )
+        # clip.write_videofile(files[0], audio=False)
+        # clip.resize(0.3).write_gif(files[1])
 
-        for file in files:
-            arr = file.split('.')
-            ext = arr[len(arr) - 1]
-
-            transfer.upload_file(
-                file, 'gifly.org', dir_code + '/' + prefix + '.' + ext
-            )
+        # for file in files:
+        #     arr = file.split('.')
+        #     ext = arr[len(arr) - 1]
+        #
+        #     transfer.upload_file(
+        #         file, 'gifly.org', dir_code + '/' + prefix + '.' + ext
+        #     )
 
     return jsonify({})
 
