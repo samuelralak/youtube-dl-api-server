@@ -74,8 +74,8 @@ def flatten_result(result):
 api = Blueprint('api', __name__)
 client = boto3.client('s3',
     'us-east-1',
-    aws_access_key_id='AKIAIOKFVXDG2HH2DQTQ',
-    aws_secret_access_key='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'
+    aws_access_key_id='',
+    aws_secret_access_key=''
 )
 
 
